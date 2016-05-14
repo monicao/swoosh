@@ -22,13 +22,16 @@ if Code.ensure_loaded?(Plug) do
     use Plug.Router
     use Plug.ErrorHandler
 
-    alias Swoosh.InMemoryMailbox
+    alias Swoosh.Adapters.Local.Storage.Memory
 
     require EEx
     EEx.function_from_file :defp, :template, "lib/plug/templates/mailbox_viewer/index.html.eex", [:assigns]
 
     def call(conn, opts) do
-      conn = assign(conn, :base_path, opts[:base_path] || "")
+      conn =
+        conn
+        |> assign(:base_path, opts[:base_path] || "")
+        |> assign(:storage_driver, opts[:storage_driver] || Memory)
       super(conn, opts)
     end
 
@@ -36,22 +39,22 @@ if Code.ensure_loaded?(Plug) do
     plug :dispatch
 
     get "/" do
-      emails = InMemoryMailbox.all()
+      emails = conn.assigns.storage_driver.all()
       conn
       |> put_resp_content_type("text/html")
       |> send_resp(200, template(emails: emails, email: nil, conn: conn))
     end
 
     get "/:id/html" do
-      email = InMemoryMailbox.get(id)
+      email = conn.assigns.storage_driver.get(id)
       conn
       |> put_resp_content_type("text/html")
       |> send_resp(200, email.html_body)
     end
 
     get "/:id" do
-      emails = InMemoryMailbox.all()
-      email = InMemoryMailbox.get(id)
+      emails = conn.assigns.storage_driver.all()
+      email = conn.assigns.storage_driver.get(id)
       conn
       |> put_resp_content_type("text/html")
       |> send_resp(200, template(emails: emails, email: email, conn: conn))
