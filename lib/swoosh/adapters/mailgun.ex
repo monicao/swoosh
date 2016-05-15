@@ -27,14 +27,12 @@ defmodule Swoosh.Adapters.Mailgun do
   @api_endpoint "/messages"
 
   def deliver(%Email{} = email, config \\ []) do
+    if !config[:domain] || !config[:api_key] do
+      raise ArgumentError, "need both :domain and :api_key in Mailgun adapter config. " <>
+                            "config #{inspect config}"
+    end
     headers = prepare_headers(email, config)
     params = email |> prepare_body |> Plug.Conn.Query.encode
-    IO.puts("<==============")
-    IO.inspect(email)
-    IO.inspect(config)
-    IO.inspect(base_url(config))
-    IO.inspect(params)
-    IO.puts("==============>")
     case HTTPoison.post(base_url(config) <> "/" <> config[:domain] <> @api_endpoint, params, headers) do
       {:ok, %Response{status_code: code, body: body}} when code >= 200 and code <= 299 ->
         {:ok, %{id: Poison.decode!(body)["id"]}}
